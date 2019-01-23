@@ -2,12 +2,15 @@ getwd()
 #install.packages("XML")
 require(XML)
 library("methods")
+library("dplyr")
+library("tidyr")
 
 
 # set working directory
 # here you add were your data is (remember to change \ from Windows paths)
-#setwd("here/goes/your/path")
-setwd("/Users/segutierrez/Dropbox/eswiki/code/raw_data")
+setwd("/home/luba/Dropbox/eswiki/code/raw_data")
+#setwd("/Users/segutierrez/Dropbox/eswiki/code/raw_data")
+#getwd()
 
 #1. Read your tsv with all citations with identifiers extracted from the most recent version of your language Wikipedia 
 #Available here: https://figshare.com/articles/Wikipedia_Scholarly_Article_Citations/1299540/10
@@ -38,39 +41,86 @@ barplot(types)
 libros <- eswiki[ which(eswiki$type=='isbn'), ]
 
 
-
 #2.1 Convert "libros" into a dataframe
 library("tibble")
 libros_df <- as_data_frame(libros)
 #View(libros)
 #summary(libros)
 
-#2.2 Create a subset with all the books that cite the "Historia Mínima de México" el El Colegio de México
-library("dplyr")
+#2.2 Create a subset with all the books that cite one book you know about as a test
+#Here you can see my test with "Historia Mínima de México" el El Colegio de México
 historia_minima = c(9681211391,9789681211394,9788415832010, 9789681211387, 9789680101672)
 hm_citations <- libros_df[which(libros_df$id %in% historia_minima),]
-
 View(hm_citations)
 #Notes: only one out of the 5 different isbns of the same book has been used: "9681211391" (2004 edition)
 
 
+#######################################################
+####3. Extract all ISBNs from your University Press####
+#######################################################
+# A little pre-processing was necessary for my data (did it with openrefine)
+#registroscolmex <- separate(registroscolmexraw, ISBN, into = c("ISBN", "Notas"), sep = "\\s")
 
-#3. Explore all books from the University Press
-libroscolmex <- read.csv(file = 'isbncolmex.csv', sep = ',', header = TRUE, fill=TRUE, encoding = "UTF-8")
-isbncolmex <- libroscolmex$ISBN
-colmex_citations <- libros_df[which(libros_df$id %in% isbncolmex),]
 
-colmexcite_df <- as_data_frame(colmex_citations)
+library(readr)
+registroscolmex <- read_csv("delColmex_limpio.csv", 
+                            col_types = cols(ISBN = col_character()))
+View(registroscolmex)
+
+## This is to subset where my real information is
+registroscolmexisbn <- subset(registroscolmex, (!is.na(registroscolmex$ISBN)))
+colmexissn <- subset(registroscolmex, (!is.na(registroscolmex$ISSN)))
+
+#This is a list of registers without ISBN, ISSN
+registroscolmexsinisbn <- subset(registroscolmex, (is.na(registroscolmex$ISBN)) & (is.na(registroscolmex$ISSN)))
+titulos_sin_isbn <- sort(table(registroscolmexsinisbn$title), decreasing = T)
+write.csv(registroscolmexsinisbn, file = "registroscolmex_sin-isbn-issn.csv", row.names=FALSE)
+
+length(registroscolmexisbn$ISBN)
+isbncolmexfreq <- as.data.frame(sort(table(registroscolmex$ISBN), decreasing = T))
+colnames(isbncolmexfreq) <- c("ISBN", "Frecuencia")
+write.csv(isbncolmexfreq, file = "isbncolmexfreq.csv", row.names=FALSE)
+
+############################################################
+###4. Compare your ISBNs with the ones cited in Wikipedia###
+###########################################################
+#Now that I have my list of unique ISBNs
+isbncolmex <- isbncolmexfreq$ISBN
+
+#I will see if they are in the df of cited books in Wikipedia
+colmexcite_df <-  as_data_frame(libros_df[which(libros_df$id %in% isbncolmex),])
+View(colmexcite_df)
+#Number of unique different websites that cite our books
+length(unique(colmexcite_df$page_title)) #63
+#Number of unique different books cited in Wikipedia
+length(unique(colmexcite_df$id)) #38
+
 
 wikipages_list <- as.character(colmexcite_df$page_title)
-wikipages <- table(wikipages_list)
+wikipagesfreq <- sort(table(wikipages_list), decreasing=T)
+View(wikipagesfreq)
 
 citedisbn_list <- as.character(colmexcite_df$id)
-citedisbn <- table(citedisbn_list)
-View(citedisbn)
+citedisbnfreq <- as.data.frame(sort(table(citedisbn_list), decreasing=T))
+
+registroscolmex_sin_repetir <- registroscolmexisbn[!duplicated(registroscolmexisbn$ISBN),]
+
+citedisbn_joined <- inner_join(citedisbnfreq , registroscolmex_sin_repetir, by=c("citedisbn_list"="ISBN"))
+citedisbn_joined[is.na(citedisbn_joined)] = 0
+length(citedisbn_joined$freq)
+citedisbn <- data.frame(citedisbn_joined$citedisbn_list, citedisbn_joined$title, citedisbn_joined$Autor, citedisbn_joined$Freq)
+names(citedisbn) <- c("ISBN", "Título", "Autor", "No. de Citas")
+sort(table(citedisbn$Autor), decreasing = T)
+
+write.csv(citedisbn, file = "citedisbn.csv", row.names=FALSE)
+
+
+
+#############################################################################
+
 
 # Get a filtered version of the books that do have citations on Wikipedia
-cited_books <- libroscolmex[which(libroscolmex$ISBN %in% citedisbn_list),]
+cited_books <- registroscolmex[which(registroscolmex$ISBN %in% citedisbn_list),]
 
 
 citedcenter <- table(cited_books$DEPARTAMENTO)

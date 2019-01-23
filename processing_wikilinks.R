@@ -1,8 +1,12 @@
-devtools::install_github("jayjacobs/tldextract")
-library("tldextract")
-library(plyr)
+install.packages("curl")
 
-colmexlinks <- read.table(file = 'colmex_links.csv', header = TRUE, sep=",", fill=TRUE, encoding = "UTF-8")
+
+setwd("C:/Users/silvi/Dropbox/eswiki/code/raw_data/")
+devtools::install_github("jayjacobs/tldextract")
+# library("tldextract")
+library(plyr)
+R.version
+colmexlinks <- read.table(file = 'colmexlinks_raw.csv', header = TRUE, sep=",", fill=TRUE)
 View(colmexlinks)
 
 host <- parse_url(colmexlinks$copia_links[1])$hostname
