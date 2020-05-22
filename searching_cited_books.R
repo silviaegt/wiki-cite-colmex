@@ -8,9 +8,7 @@ library("tidyr")
 
 # set working directory
 # here you add were your data is (remember to change \ from Windows paths)
-setwd("/home/luba/Dropbox/eswiki/code/raw_data")
-#setwd("/Users/segutierrez/Dropbox/eswiki/code/raw_data")
-#getwd()
+setwd("yourpath")
 
 #1. Read your tsv with all citations with identifiers extracted from the most recent version of your language Wikipedia 
 #Available here: https://figshare.com/articles/Wikipedia_Scholarly_Article_Citations/1299540/10
@@ -178,7 +176,6 @@ xml_data <- xmlToList(data)
 length(xml_data)
 
 
-# el ... mmm 8 ? que corresponde a works?
 works = xml_data[[8]]
 
 # y de ahí quieres: author, holding, hyr y title
